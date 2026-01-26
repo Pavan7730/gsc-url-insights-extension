@@ -6,21 +6,14 @@
   <link rel="stylesheet" href="popup.css" />
 </head>
 <body>
-  <div class="container">
-    <h2>GSC URL Insights</h2>
+  <h2>GSC URL Insights</h2>
 
-    <p class="url" id="currentUrl">Loading...</p>
+  <p id="url">Loading...</p>
 
-    <button id="connectBtn">Connect Google Search Console</button>
+  <button id="connect">Connect GSC</button>
+  <button id="fetch">Fetch Data</button>
 
-    <div id="data" class="hidden">
-      <p><strong>Clicks:</strong> <span id="clicks">-</span></p>
-      <p><strong>Impressions:</strong> <span id="impressions">-</span></p>
-
-      <h4>Top Keywords</h4>
-      <ul id="keywords"></ul>
-    </div>
-  </div>
+  <div id="result"></div>
 
   <script src="popup.js"></script>
 </body>

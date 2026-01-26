@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8" />
+  <title>GSC URL Insights</title>
+  <link rel="stylesheet" href="popup.css" />
+</head>
+<body>
+  <div class="container">
+    <h2>GSC URL Insights</h2>
+
+    <p class="url" id="currentUrl">Loading...</p>
+
+    <button id="connectBtn">Connect Google Search Console</button>
+
+    <div id="data" class="hidden">
+      <p><strong>Clicks:</strong> <span id="clicks">-</span></p>
+      <p><strong>Impressions:</strong> <span id="impressions">-</span></p>
+
+      <h4>Top Keywords</h4>
+      <ul id="keywords"></ul>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

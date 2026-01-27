@@ -1,4 +1,5 @@
-const CLIENT_ID = "669869853203-nvb9hav1ap08ovhrj9bi9u6iskm2uj3s.apps.googleusercontent.com";
+const CLIENT_ID =
+  "669869853203-3o9c91v211or0apbsm3c7aq6hp0ild5g.apps.googleusercontent.com";
 const SCOPES = "https://www.googleapis.com/auth/webmasters.readonly";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {

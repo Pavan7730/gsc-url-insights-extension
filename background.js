@@ -1,5 +1,6 @@
 const CLIENT_ID =
   "669869853203-3o9c91v211or0apbsm3c7aq6hp0ild5g.apps.googleusercontent.com";
+
 const SCOPES = "https://www.googleapis.com/auth/webmasters.readonly";
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
@@ -8,10 +9,12 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   if (message.type === "FETCH_GSC_DATA") {
-    fetchGSCData(message.url, sendResponse);
+    fetchGSCData(message.payload, sendResponse);
     return true;
   }
 });
+
+// ---------------- AUTH ----------------
 
 function authenticate() {
   const redirectUri = chrome.identity.getRedirectURL();
@@ -27,16 +30,21 @@ function authenticate() {
   chrome.identity.launchWebAuthFlow(
     { url: authUrl, interactive: true },
     (redirectUrl) => {
-      if (!redirectUrl) return;
+      if (!redirectUrl) {
+        console.error("OAuth failed");
+        return;
+      }
 
       const params = new URLSearchParams(redirectUrl.split("#")[1]);
       const token = params.get("access_token");
 
       chrome.storage.local.set({ gscToken: token });
-      console.log("✅ GSC token stored");
+      console.log("✅ GSC token saved");
     }
   );
 }
+
+// ---------------- DATA FETCH ----------------
 
 async function fetchGSCData(payload, sendResponse) {
   chrome.storage.local.get("gscToken", async ({ gscToken }) => {
@@ -46,7 +54,10 @@ async function fetchGSCData(payload, sendResponse) {
     }
 
     const pageUrl = payload.url;
-    const siteUrl = new URL(pageUrl).origin + "/";
+    const hostname = new URL(pageUrl).hostname;
+
+    // 🔑 TRY DOMAIN PROPERTY FIRST
+    let siteUrl = `sc-domain:${hostname}`;
 
     let startDate, endDate;
 
@@ -54,8 +65,8 @@ async function fetchGSCData(payload, sendResponse) {
       startDate = payload.startDate;
       endDate = payload.endDate;
     } else {
-      const days = parseInt(payload.range || 3, 10);
-      endDate = getDate(2); // GSC delay buffer
+      const days = parseInt(payload.range || 7, 10);
+      endDate = getDate(2);
       startDate = getDate(days + 2);
     }
 
@@ -68,7 +79,7 @@ async function fetchGSCData(payload, sendResponse) {
           filters: [
             {
               dimension: "page",
-              operator: "equals",
+              operator: "contains", // 🔥 IMPORTANT FIX
               expression: pageUrl
             }
           ]
@@ -77,24 +88,41 @@ async function fetchGSCData(payload, sendResponse) {
       rowLimit: 10
     };
 
-    const res = await fetch(
-      `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(
-        siteUrl
-      )}/searchAnalytics/query`,
-      {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${gscToken}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(body)
-      }
-    );
+    let response = await callGSC(siteUrl, gscToken, body);
 
-    const data = await res.json();
-    sendResponse(data);
+    // 🔁 FALLBACK TO URL-PREFIX PROPERTY
+    if (response.error && response.error.code === 403) {
+      siteUrl = new URL(pageUrl).origin + "/";
+      response = await callGSC(siteUrl, gscToken, body);
+    }
+
+    console.log("✅ FINAL GSC RESPONSE:", response);
+    sendResponse(response);
   });
 }
+
+// ---------------- API CALL ----------------
+
+async function callGSC(siteUrl, token, body) {
+  const res = await fetch(
+    `https://www.googleapis.com/webmasters/v3/sites/${encodeURIComponent(
+      siteUrl
+    )}/searchAnalytics/query`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(body)
+    }
+  );
+
+  return await res.json();
+}
+
+// ---------------- UTILS ----------------
+
 function getDate(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);

@@ -9,11 +9,14 @@ document.addEventListener("DOMContentLoaded", async () => {
   currentUrl = tab.url;
   document.getElementById("url").textContent = currentUrl;
 
+  // 🔐 CONNECT GSC (fire-and-forget, NO promise)
   document.getElementById("connect").onclick = () => {
-    chrome.runtime.sendMessage({ type: "AUTH_GSC" });
+    chrome.runtime.sendMessage({ type: "AUTH_GSC" }, () => {
+      // intentionally empty to avoid MV3 error
+    });
   };
 
-  // Toggle custom date inputs
+  // Toggle custom date picker
   document.querySelectorAll('input[name="range"]').forEach(radio => {
     radio.addEventListener("change", () => {
       document.getElementById("customDates").classList.toggle(
@@ -23,6 +26,7 @@ document.addEventListener("DOMContentLoaded", async () => {
     });
   });
 
+  // 📊 FETCH DATA
   document.getElementById("fetch").onclick = () => {
     const range = document.querySelector('input[name="range"]:checked').value;
 
@@ -42,34 +46,38 @@ document.addEventListener("DOMContentLoaded", async () => {
   };
 });
 
+// ---------------- RENDER ----------------
+
 function renderData(data) {
   const container = document.getElementById("result");
 
-  if (data.error) {
-    container.innerHTML = `<p>${data.error}</p>`;
+  if (!data || data.error) {
+    container.innerHTML = `<p>No data available</p>`;
     return;
   }
 
-  if (!data.rows || data.rows.length === 0) {
-    container.innerHTML = `<p>No data found</p>`;
-    return;
+  const { totals, queries, fallback } = data;
+
+  let html = `
+    <p><strong>Total Clicks:</strong> ${totals.clicks}</p>
+    <p><strong>Total Impressions:</strong> ${totals.impressions}</p>
+    <p><strong>CTR:</strong> ${(totals.ctr * 100).toFixed(2)}%</p>
+    <p><strong>Avg Position:</strong> ${totals.position.toFixed(1)}</p>
+  `;
+
+  if (fallback) {
+    html += `<p style="color:#777;font-size:12px;">ℹ️ Grouped page queries (fallback)</p>`;
   }
 
-  const totalClicks = data.rows.reduce((a, b) => a + b.clicks, 0);
-  const totalImpr = data.rows.reduce((a, b) => a + b.impressions, 0);
-
-  container.innerHTML = `
-    <p><strong>Total Clicks:</strong> ${totalClicks}</p>
-    <p><strong>Total Impressions:</strong> ${totalImpr}</p>
-
+  html += `
     <h4>Top Keywords</h4>
     <ul>
-      ${data.rows
-        .map(
-          r =>
-            `<li>${r.keys[0]} — Clicks: ${r.clicks}, Impr: ${r.impressions}</li>`
-        )
-        .join("")}
+      ${queries.map(
+        q =>
+          `<li>${q.keys[0]} — Clicks: ${q.clicks}, Impr: ${q.impressions}</li>`
+      ).join("")}
     </ul>
   `;
+
+  container.innerHTML = html;
 }

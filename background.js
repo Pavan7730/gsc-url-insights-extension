@@ -37,18 +37,30 @@ function authenticate() {
   );
 }
 
-async function fetchGSCData(pageUrl, sendResponse) {
+async function fetchGSCData(payload, sendResponse) {
   chrome.storage.local.get("gscToken", async ({ gscToken }) => {
     if (!gscToken) {
       sendResponse({ error: "Not authenticated" });
       return;
     }
 
+    const pageUrl = payload.url;
     const siteUrl = new URL(pageUrl).origin + "/";
 
+    let startDate, endDate;
+
+    if (payload.startDate && payload.endDate) {
+      startDate = payload.startDate;
+      endDate = payload.endDate;
+    } else {
+      const days = parseInt(payload.range || 3, 10);
+      endDate = getDate(2); // GSC delay buffer
+      startDate = getDate(days + 2);
+    }
+
     const body = {
-      startDate: getDate(28),
-      endDate: getDate(2),
+      startDate,
+      endDate,
       dimensions: ["query"],
       dimensionFilterGroups: [
         {
@@ -82,7 +94,6 @@ async function fetchGSCData(pageUrl, sendResponse) {
     sendResponse(data);
   });
 }
-
 function getDate(daysAgo) {
   const d = new Date();
   d.setDate(d.getDate() - daysAgo);

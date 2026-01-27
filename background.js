@@ -3,6 +3,8 @@ const CLIENT_ID =
 
 const SCOPES = "https://www.googleapis.com/auth/webmasters.readonly";
 
+// ---------------- MESSAGE HANDLER ----------------
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "AUTH_GSC") {
     authenticate();
@@ -39,7 +41,7 @@ function authenticate() {
       const token = params.get("access_token");
 
       chrome.storage.local.set({ gscToken: token });
-      console.log("✅ GSC token saved");
+      console.log("✅ GSC token stored");
     }
   );
 }
@@ -56,9 +58,6 @@ async function fetchGSCData(payload, sendResponse) {
     const pageUrl = payload.url;
     const hostname = new URL(pageUrl).hostname;
 
-    // 🔑 TRY DOMAIN PROPERTY FIRST
-    let siteUrl = `sc-domain:${hostname}`;
-
     let startDate, endDate;
 
     if (payload.startDate && payload.endDate) {
@@ -66,11 +65,13 @@ async function fetchGSCData(payload, sendResponse) {
       endDate = payload.endDate;
     } else {
       const days = parseInt(payload.range || 7, 10);
-      endDate = getDate(2);
+      endDate = getDate(2);           // GSC delay buffer
       startDate = getDate(days + 2);
     }
 
-    const body = {
+    // ---------------- QUERY BODY (EXACT PAGE FIRST) ----------------
+
+    let body = {
       startDate,
       endDate,
       dimensions: ["query"],
@@ -79,7 +80,7 @@ async function fetchGSCData(payload, sendResponse) {
           filters: [
             {
               dimension: "page",
-              operator: "contains", // 🔥 IMPORTANT FIX
+              operator: "equals", // 🎯 exact page match
               expression: pageUrl
             }
           ]
@@ -88,12 +89,24 @@ async function fetchGSCData(payload, sendResponse) {
       rowLimit: 10
     };
 
+    let siteUrl = `sc-domain:${hostname}`;
     let response = await callGSC(siteUrl, gscToken, body);
 
-    // 🔁 FALLBACK TO URL-PREFIX PROPERTY
+    // ---------------- FALLBACK: URL PREFIX PROPERTY ----------------
+
     if (response.error && response.error.code === 403) {
       siteUrl = new URL(pageUrl).origin + "/";
       response = await callGSC(siteUrl, gscToken, body);
+    }
+
+    // ---------------- FALLBACK: PAGE CONTAINS ----------------
+
+    if (!response.rows || response.rows.length === 0) {
+      body.dimensionFilterGroups[0].filters[0].operator = "contains";
+      response = await callGSC(siteUrl, gscToken, body);
+      response.fallback = true; // mark fallback for UI (optional)
+    } else {
+      response.fallback = false;
     }
 
     console.log("✅ FINAL GSC RESPONSE:", response);

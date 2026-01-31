@@ -1,83 +1,34 @@
-let currentUrl = "";
+function render(meta, robots) {
+  let indexingSignal = "Indexable signals present";
 
-document.addEventListener("DOMContentLoaded", async () => {
-  const [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true
-  });
-
-  currentUrl = tab.url;
-  document.getElementById("url").textContent = currentUrl;
-
-  // 🔐 CONNECT GSC (fire-and-forget, NO promise)
-  document.getElementById("connect").onclick = () => {
-    chrome.runtime.sendMessage({ type: "AUTH_GSC" }, () => {
-      // intentionally empty to avoid MV3 error
-    });
-  };
-
-  // Toggle custom date picker
-  document.querySelectorAll('input[name="range"]').forEach(radio => {
-    radio.addEventListener("change", () => {
-      document.getElementById("customDates").classList.toggle(
-        "hidden",
-        radio.value !== "custom"
-      );
-    });
-  });
-
-  // 📊 FETCH DATA
-  document.getElementById("fetch").onclick = () => {
-    const range = document.querySelector('input[name="range"]:checked').value;
-
-    let payload = { url: currentUrl };
-
-    if (range === "custom") {
-      payload.startDate = document.getElementById("fromDate").value;
-      payload.endDate = document.getElementById("toDate").value;
-    } else {
-      payload.range = range;
-    }
-
-    chrome.runtime.sendMessage(
-      { type: "FETCH_GSC_DATA", payload },
-      renderData
-    );
-  };
-});
-
-// ---------------- RENDER ----------------
-
-function renderData(data) {
-  const container = document.getElementById("result");
-
-  if (!data || data.error) {
-    container.innerHTML = `<p>No data available</p>`;
-    return;
+  if (meta.metaRobots.includes("noindex")) {
+    indexingSignal = "Noindex detected";
+  } else if (robots.blocksGoogle || robots.blocksAll) {
+    indexingSignal = "Blocked from crawling";
+  } else if (meta.canonical !== "Not found") {
+    // Canonical exists but still indexable
+    indexingSignal = "Indexable (canonical set)";
   }
 
-  const { totals, queries, fallback } = data;
+  let robotsStatus = "Allowed for Googlebot";
+  let robotsDetails = "";
 
-  let html = `
-    <p><strong>Total Clicks:</strong> ${totals.clicks}</p>
-    <p><strong>Total Impressions:</strong> ${totals.impressions}</p>
-    <p><strong>CTR:</strong> ${(totals.ctr * 100).toFixed(2)}%</p>
-    <p><strong>Avg Position:</strong> ${totals.position.toFixed(1)}</p>
-  `;
-
-  if (fallback) {
-    html += `<p style="color:#777;font-size:12px;">ℹ️ Grouped page queries (fallback)</p>`;
+  if (robots.blocksAll) {
+    robotsStatus = "Blocked for all bots";
+  } else if (robots.blocksGoogle) {
+    robotsStatus = "Blocked for Googlebot";
+  } else if (robots.blockedBots?.length) {
+    robotsStatus = "Partially blocked";
+    robotsDetails = `Blocked bots: ${robots.blockedBots.join(", ")}`;
   }
 
-  html += `
-    <h4>Top Keywords</h4>
-    <ul>
-      ${queries.map(
-        q =>
-          `<li>${q.keys[0]} — Clicks: ${q.clicks}, Impr: ${q.impressions}</li>`
-      ).join("")}
-    </ul>
+  output.innerHTML = `
+    <div class="row"><strong>Indexing Signals:</strong> ${indexingSignal}</div>
+    <div class="row"><strong>Meta Robots:</strong> ${meta.metaRobots}</div>
+    <div class="row"><strong>Canonical:</strong> ${meta.canonical}</div>
+    <div class="row">
+      <strong>Robots.txt:</strong> ${robotsStatus}
+      ${robotsDetails ? `<br><small>${robotsDetails}</small>` : ""}
+    </div>
   `;
-
-  container.innerHTML = html;
 }

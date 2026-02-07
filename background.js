@@ -1,50 +1,96 @@
+// ================= CONFIG =================
+
 const CLIENT_ID =
-  "669869853203-3o9c91v211or0apbsm3c7aq6hp0ild5g.apps.googleusercontent.com";
+  "669869853203-la12753n1ac5u8m5apt26fmgcnliprq0.apps.googleusercontent.com";
 
-const SCOPES = "https://www.googleapis.com/auth/webmasters.readonly";
+const SCOPES =
+  "https://www.googleapis.com/auth/webmasters.readonly";
 
-// ---------------- MESSAGE HANDLER ----------------
+// ================= MESSAGE HANDLER =================
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "AUTH_GSC") {
     authenticate();
-    return false; // 🔑 IMPORTANT for MV3
+    return false;
   }
 
   if (message.type === "FETCH_GSC_DATA") {
     fetchGSCData(message.payload, sendResponse);
-    return true; // async response
+    return true;
   }
 });
 
-// ---------------- AUTH ----------------
+// ================= AUTH (PKCE FLOW) =================
 
-function authenticate() {
+async function authenticate() {
   const redirectUri = chrome.identity.getRedirectURL();
+
+  // PKCE
+  const codeVerifier = crypto.randomUUID() + crypto.randomUUID();
+  const encoder = new TextEncoder();
+  const data = encoder.encode(codeVerifier);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  const codeChallenge = btoa(
+    String.fromCharCode(...new Uint8Array(digest))
+  )
+    .replace(/\+/g, "-")
+    .replace(/\//g, "_")
+    .replace(/=+$/, "");
+
+  await chrome.storage.local.set({ codeVerifier });
 
   const authUrl =
     "https://accounts.google.com/o/oauth2/v2/auth" +
     "?client_id=" + encodeURIComponent(CLIENT_ID) +
-    "&response_type=token" +
+    "&response_type=code" +
     "&redirect_uri=" + encodeURIComponent(redirectUri) +
     "&scope=" + encodeURIComponent(SCOPES) +
+    "&code_challenge=" + codeChallenge +
+    "&code_challenge_method=S256" +
     "&prompt=consent";
 
   chrome.identity.launchWebAuthFlow(
     { url: authUrl, interactive: true },
-    (redirectUrl) => {
+    async redirectUrl => {
       if (!redirectUrl) return;
 
-      const params = new URLSearchParams(redirectUrl.split("#")[1]);
-      const token = params.get("access_token");
+      const url = new URL(redirectUrl);
+      const code = url.searchParams.get("code");
+      if (!code) return;
 
-      chrome.storage.local.set({ gscToken: token });
-      console.log("✅ GSC token stored");
+      exchangeCodeForToken(code, redirectUri);
     }
   );
 }
 
-// ---------------- DATA FETCH ----------------
+async function exchangeCodeForToken(code, redirectUri) {
+  const { codeVerifier } = await chrome.storage.local.get("codeVerifier");
+
+  const body = new URLSearchParams({
+    client_id: CLIENT_ID,
+    code,
+    code_verifier: codeVerifier,
+    grant_type: "authorization_code",
+    redirect_uri: redirectUri
+  });
+
+  const res = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body
+  });
+
+  const data = await res.json();
+
+  if (data.access_token) {
+    await chrome.storage.local.set({ gscToken: data.access_token });
+    console.log("✅ GSC Connected");
+  } else {
+    console.error("❌ Token error", data);
+  }
+}
+
+// ================= DATA FETCH =================
 
 async function fetchGSCData(payload, sendResponse) {
   chrome.storage.local.get("gscToken", async ({ gscToken }) => {
@@ -69,7 +115,6 @@ async function fetchGSCData(payload, sendResponse) {
 
     let siteUrl = `sc-domain:${hostname}`;
 
-    // ---------- PAGE TOTALS ----------
     const totalsBody = {
       startDate,
       endDate,
@@ -97,7 +142,6 @@ async function fetchGSCData(payload, sendResponse) {
       position: 0
     };
 
-    // ---------- QUERY DATA ----------
     const queryBody = {
       startDate,
       endDate,
@@ -134,7 +178,7 @@ async function fetchGSCData(payload, sendResponse) {
   });
 }
 
-// ---------------- API CALL ----------------
+// ================= API =================
 
 async function callGSC(siteUrl, token, body) {
   const res = await fetch(
@@ -154,7 +198,7 @@ async function callGSC(siteUrl, token, body) {
   return await res.json();
 }
 
-// ---------------- UTILS ----------------
+// ================= UTILS =================
 
 function getDate(daysAgo) {
   const d = new Date();

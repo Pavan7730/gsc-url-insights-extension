@@ -1,12 +1,10 @@
-// ================= CONFIG =================
-
 const CLIENT_ID =
   "669869853203-la12753n1ac5u8m5apt26fmgcnliprq0.apps.googleusercontent.com";
 
 const SCOPES =
   "https://www.googleapis.com/auth/webmasters.readonly";
 
-// ================= MESSAGE HANDLER =================
+// ---------------- MESSAGE HANDLER ----------------
 
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "AUTH_GSC") {
@@ -20,12 +18,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 });
 
-// ================= AUTH (PKCE FLOW) =================
+// ---------------- AUTH (PKCE) ----------------
 
 async function authenticate() {
   const redirectUri = chrome.identity.getRedirectURL();
 
-  // PKCE
   const codeVerifier = crypto.randomUUID() + crypto.randomUUID();
   const encoder = new TextEncoder();
   const data = encoder.encode(codeVerifier);
@@ -83,14 +80,11 @@ async function exchangeCodeForToken(code, redirectUri) {
   const data = await res.json();
 
   if (data.access_token) {
-    await chrome.storage.local.set({ gscToken: data.access_token });
-    console.log("✅ GSC Connected");
-  } else {
-    console.error("❌ Token error", data);
+    chrome.storage.local.set({ gscToken: data.access_token });
   }
 }
 
-// ================= DATA FETCH =================
+// ---------------- DATA FETCH ----------------
 
 async function fetchGSCData(payload, sendResponse) {
   chrome.storage.local.get("gscToken", async ({ gscToken }) => {
@@ -102,47 +96,12 @@ async function fetchGSCData(payload, sendResponse) {
     const pageUrl = payload.url;
     const hostname = new URL(pageUrl).hostname;
 
-    let startDate, endDate;
-
-    if (payload.startDate && payload.endDate) {
-      startDate = payload.startDate;
-      endDate = payload.endDate;
-    } else {
-      const days = parseInt(payload.range || 7, 10);
-      endDate = getDate(2);
-      startDate = getDate(days + 2);
-    }
+    const endDate = getDate(2);
+    const startDate = getDate(9);
 
     let siteUrl = `sc-domain:${hostname}`;
 
-    const totalsBody = {
-      startDate,
-      endDate,
-      dimensions: [],
-      dimensionFilterGroups: [{
-        filters: [{
-          dimension: "page",
-          operator: "equals",
-          expression: pageUrl
-        }]
-      }]
-    };
-
-    let totalsResponse = await callGSC(siteUrl, gscToken, totalsBody);
-
-    if (totalsResponse.error && totalsResponse.error.code === 403) {
-      siteUrl = new URL(pageUrl).origin + "/";
-      totalsResponse = await callGSC(siteUrl, gscToken, totalsBody);
-    }
-
-    const totalsRow = totalsResponse.rows?.[0] || {
-      clicks: 0,
-      impressions: 0,
-      ctr: 0,
-      position: 0
-    };
-
-    const queryBody = {
+    const body = {
       startDate,
       endDate,
       dimensions: ["query"],
@@ -156,29 +115,11 @@ async function fetchGSCData(payload, sendResponse) {
       rowLimit: 10
     };
 
-    let queryResponse = await callGSC(siteUrl, gscToken, queryBody);
+    let response = await callGSC(siteUrl, gscToken, body);
 
-    let fallback = false;
-    if (!queryResponse.rows || queryResponse.rows.length === 0) {
-      queryBody.dimensionFilterGroups[0].filters[0].operator = "contains";
-      queryResponse = await callGSC(siteUrl, gscToken, queryBody);
-      fallback = true;
-    }
-
-    sendResponse({
-      totals: {
-        clicks: totalsRow.clicks,
-        impressions: totalsRow.impressions,
-        ctr: totalsRow.ctr,
-        position: totalsRow.position
-      },
-      queries: queryResponse.rows || [],
-      fallback
-    });
+    sendResponse({ queries: response.rows || [] });
   });
 }
-
-// ================= API =================
 
 async function callGSC(siteUrl, token, body) {
   const res = await fetch(
@@ -194,11 +135,8 @@ async function callGSC(siteUrl, token, body) {
       body: JSON.stringify(body)
     }
   );
-
   return await res.json();
 }
-
-// ================= UTILS =================
 
 function getDate(daysAgo) {
   const d = new Date();

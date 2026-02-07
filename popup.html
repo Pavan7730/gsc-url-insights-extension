@@ -3,44 +3,41 @@
 <head>
   <meta charset="UTF-8" />
   <title>GSC URL Insights</title>
-  <link rel="stylesheet" href="popup.css" />
+  <style>
+    body {
+      width: 320px;
+      font-family: Arial, sans-serif;
+      padding: 12px;
+    }
+    h2 {
+      margin-top: 0;
+    }
+    .url {
+      font-size: 12px;
+      color: #555;
+      word-break: break-all;
+      margin-bottom: 10px;
+    }
+    .coming {
+      background: #f5f7fa;
+      border: 1px dashed #ccc;
+      padding: 10px;
+      font-size: 13px;
+      color: #333;
+      border-radius: 4px;
+    }
+  </style>
 </head>
 <body>
   <h2>GSC URL Insights</h2>
 
-  <p id="url" class="url">Loading...</p>
+  <div id="url" class="url">Loading...</div>
 
-  <button id="connect">Connect GSC</button>
-
-  <!-- DATE SELECTION -->
-  <div class="section">
-    <h4>Date Range</h4>
-
-    <label>
-      <input type="radio" name="range" value="3" checked />
-      Last 3 days
-    </label><br/>
-
-    <label>
-      <input type="radio" name="range" value="7" />
-      Last 7 days
-    </label><br/>
-
-    <label>
-      <input type="radio" name="range" value="custom" />
-      Custom
-    </label>
-
-    <div id="customDates" class="hidden">
-      <input type="date" id="fromDate" />
-      <input type="date" id="toDate" />
-    </div>
+  <div class="coming">
+    🚧 <strong>Coming Soon</strong><br/><br/>
+    Google Search Console insights (clicks, impressions & keywords)
+    will be available in the next update.
   </div>
-
-  <button id="fetch">Fetch Data</button>
-
-  <!-- RESULTS -->
-  <div id="result"></div>
 
   <script src="popup.js"></script>
 </body>

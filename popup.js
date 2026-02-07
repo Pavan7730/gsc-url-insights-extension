@@ -1,34 +1,61 @@
 let currentUrl = "";
 
 document.addEventListener("DOMContentLoaded", async () => {
-  const [tab] = await chrome.tabs.query({
-    active: true,
-    currentWindow: true
-  });
+  try {
+    const [tab] = await chrome.tabs.query({
+      active: true,
+      currentWindow: true
+    });
 
-  currentUrl = tab.url;
-  document.getElementById("url").textContent = currentUrl;
+    if (!tab || !tab.url) return;
 
+    currentUrl = tab.url;
+    document.getElementById("url").textContent = currentUrl;
+  } catch (e) {
+    console.error(e);
+  }
+
+  // CONNECT GSC
   document.getElementById("connect").onclick = () => {
-    chrome.runtime.sendMessage({ type: "AUTH_GSC" });
+    try {
+      chrome.runtime.sendMessage({ type: "AUTH_GSC" });
+      document.getElementById("result").innerHTML =
+        "<p>🔐 Opening Google login…</p>";
+    } catch (e) {
+      console.error(e);
+    }
   };
 
+  // FETCH DATA
   document.getElementById("fetch").onclick = () => {
-    chrome.runtime.sendMessage(
-      { type: "FETCH_GSC_DATA", payload: { url: currentUrl } },
-      response => {
-        if (chrome.runtime.lastError) return;
-        renderData(response);
-      }
-    );
+    try {
+      chrome.runtime.sendMessage(
+        { type: "FETCH_GSC_DATA", payload: { url: currentUrl } },
+        response => {
+          if (chrome.runtime.lastError) {
+            document.getElementById("result").innerHTML =
+              "<p>⚠️ Please connect GSC first</p>";
+            return;
+          }
+          renderData(response);
+        }
+      );
+    } catch (e) {
+      console.error(e);
+    }
   };
 });
 
 function renderData(data) {
   const el = document.getElementById("result");
 
-  if (!data || !data.queries) {
-    el.innerHTML = "<p>No data</p>";
+  if (!data || data.error) {
+    el.innerHTML = "<p>No data available</p>";
+    return;
+  }
+
+  if (!data.queries || data.queries.length === 0) {
+    el.innerHTML = "<p>No queries found</p>";
     return;
   }
 

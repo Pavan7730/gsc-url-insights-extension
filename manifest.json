@@ -2,7 +2,7 @@
   "manifest_version": 3,
   "name": "GSC URL Insights",
   "description": "View Google Search Console clicks, impressions & keywords for the current page.",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "permissions": [
     "tabs",
     "identity",

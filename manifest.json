@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GSC URL Insights",
-  "description": "View Google Search Console insights for the current page. GSC integration coming soon.",
-  "version": "0.1.3",
+  "description": "View basic page details instantly. Google Search Console integration coming soon.",
+  "version": "0.1.4",
   "permissions": ["tabs"],
   "action": {
     "default_popup": "popup.html",

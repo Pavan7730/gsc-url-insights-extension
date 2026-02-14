@@ -1,16 +1,13 @@
-document.addEventListener("DOMContentLoaded", async () => {
-  try {
-    const [tab] = await chrome.tabs.query({
-      active: true,
-      currentWindow: true
-    });
+chrome.tabs.query({ active: true, currentWindow: true }, ([tab]) => {
+  if (!tab) return;
 
-    if (tab && tab.url) {
-      document.getElementById("url").textContent = tab.url;
-    } else {
-      document.getElementById("url").textContent = "No active page";
-    }
-  } catch (e) {
-    document.getElementById("url").textContent = "Unable to read URL";
+  document.getElementById("title").textContent = tab.title || "-";
+  document.getElementById("url").textContent = tab.url || "-";
+
+  try {
+    document.getElementById("domain").textContent =
+      new URL(tab.url).hostname;
+  } catch {
+    document.getElementById("domain").textContent = "-";
   }
 });

@@ -5,38 +5,53 @@
   <title>GSC URL Insights</title>
   <style>
     body {
-      width: 320px;
       font-family: Arial, sans-serif;
+      width: 320px;
       padding: 12px;
     }
     h2 {
       margin-top: 0;
     }
-    .url {
+    .label {
+      font-weight: bold;
+      margin-top: 10px;
+    }
+    .value {
+      font-size: 12px;
+      color: #333;
+      word-break: break-all;
+    }
+    .note {
+      margin-top: 14px;
+      padding: 10px;
+      background: #f5f5f5;
       font-size: 12px;
       color: #555;
-      word-break: break-all;
-      margin-bottom: 10px;
-    }
-    .coming {
-      background: #f5f7fa;
-      border: 1px dashed #ccc;
-      padding: 10px;
-      font-size: 13px;
-      color: #333;
       border-radius: 4px;
     }
   </style>
 </head>
 <body>
+
   <h2>GSC URL Insights</h2>
 
-  <div id="url" class="url">Loading...</div>
+  <div>
+    <div class="label">Page Title</div>
+    <div id="title" class="value">Loading...</div>
+  </div>
 
-  <div class="coming">
-    🚧 <strong>Coming Soon</strong><br/><br/>
-    Google Search Console insights (clicks, impressions & keywords)
-    will be available in the next update.
+  <div>
+    <div class="label">Page URL</div>
+    <div id="url" class="value">Loading...</div>
+  </div>
+
+  <div>
+    <div class="label">Domain</div>
+    <div id="domain" class="value">Loading...</div>
+  </div>
+
+  <div class="note">
+    🚧 Google Search Console integration is coming in a future update.
   </div>
 
   <script src="popup.js"></script>
